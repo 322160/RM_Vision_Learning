@@ -1,3 +1,7 @@
+ docs/zekai_zhu
+# 我的视觉学习记录
+今天完成了视频流的处理，并且学会了使用 Git 分支！
+
 # RoboMaster 视觉入门工程 (C++ / OpenCV)
 
 本项目是备战 RoboMaster 视觉组的大一学习工程，旨在从零搭建一个标准化的 C++ 计算机视觉流水线。
@@ -23,3 +27,4 @@
 ├── CMakeLists.txt        # CMake 构建配置
 ├── test.jpg              # 测试输入图像
 └── result.jpg            # 识别结果输出图像
+ main
