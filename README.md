@@ -7,7 +7,7 @@
 1. **图像预处理**：BGR 转 HSV 色彩空间，进行颜色阈值过滤（`cv::inRange`）。
 2. **目标提取**：寻找色块轮廓（`cv::findContours`）并计算外接矩形（`cv::boundingRect`）。
 3. **逻辑过滤**：根据目标面积（`cv::contourArea`）和长宽比（Aspect Ratio）剔除环境噪点。
-4. **后处理去重**：手写 NMS 算法（基于 IoU 交并比），剔除重叠的候选框。
+4. **后处理去重**： NMS 算法（基于 IoU 交并比），剔除重叠的候选框。
 5. **视频流处理**：使用 `cv::VideoCapture` 实时读取，控制窗口缩放并实现无限循环播放。
 6. **形态学降噪**：利用开闭运算（`cv::morphologyEx`）填补目标空洞、消除反光噪点。
 
@@ -46,7 +46,7 @@
 ├── ImageProcessor.h       # 图像处理类声明
 ├── ImageProcessor.cpp     # 图像处理核心逻辑实现 (HSV、形态学、过滤)
 ├── NMS.h                  # NMS 算法声明
-├── NMS.cpp                # NMS 算法实现 (手搓 IoU 计算)
+├── NMS.cpp                # NMS 算法实现 ( IoU 计算)
 ├── CMakeLists.txt         # CMake 构建配置
 ├── test.mp4               # 测试输入视频
 └── README.md              # 项目说明文档
