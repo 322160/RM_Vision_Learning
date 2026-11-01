@@ -59,7 +59,7 @@ int main() {
         cv::resizeWindow("Robot Vision Stream", 800, 600);
 
         // 按 'q' 退出
-        if (cv::waitKey(1) == 'q') {
+        if (cv::waitKey(30) == 'q') {
             break;
         }
     }
