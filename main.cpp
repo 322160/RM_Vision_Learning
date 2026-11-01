@@ -3,7 +3,7 @@
 #include "ImageProcessor.h"
 
 int main() {
-    // 1. 打开视频文件 (如果要开真实摄像头，把 "test.mp4" 改成数字 0)
+    // 1. 打开视频文件
     cv::VideoCapture cap("test.mp4");
     
     if (!cap.isOpened()) { 
@@ -14,44 +14,57 @@ int main() {
     ImageProcessor processor;
     cv::Mat frame;
 
+    // 允许窗口缩放（解决窗口太大拖不动的问题）
+    cv::namedWindow("Robot Vision Stream", cv::WINDOW_NORMAL);
+
     // 2. 死循环：不断地读、处理、显示
     while (true) {
-        cap >> frame; // 读取视频的下一帧
+        double t_read_start = (double)cv::getTickCount();
+        cap >> frame; // 读取下一帧
+        double t_read_end = (double)cv::getTickCount();
         
         if (frame.empty()) {
             std::cout << "视频播放完毕！" << std::endl;
-            break; // 读完了就退出
+            break; 
+ // 核心魔法：把视频的读取指针重置回第 0 帧
+            cap.set(cv::CAP_PROP_POS_FRAMES, 0); 
+            continue; // 跳过本次循环剩余代码，重新读第一帧
         }
 
-   // 👇 核心新加代码：开始计时！
-        double t1 = (double)cv::getTickCount();
+        // 【提速魔法】：把画面缩小一半（0.5）。如果还卡，就改成 0.25
+        cv::resize(frame, frame, cv::Size(), 0.5, 0.5);
 
-
-
-
-        // 3. 交给我们的类处理
+        // 计时处理时间
+        double t_process_start = (double)cv::getTickCount();
         processor.process(frame); 
+        double t_process_end = (double)cv::getTickCount();
 
- // 👇 核心新加代码：结束计时，并算出 FPS！
-        double t2 = (double)cv::getTickCount();
-        double fps = cv::getTickFrequency() / (t2 - t1);
+        // 计算耗时（毫秒）
+        double read_ms = (t_read_end - t_read_start) / cv::getTickFrequency() * 1000;
+        double process_ms = (t_process_end - t_process_start) / cv::getTickFrequency() * 1000;
 
+        // 计算总 FPS
+        double fps = 1.0 / ((read_ms + process_ms) / 1000.0);
 
-          // 把 FPS 用绿色的字，打在你的视频画面左上角
+        // 把数据打在画面上
         cv::putText(frame, "FPS: " + std::to_string((int)fps), 
-                    cv::Point(20, 50), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 255, 0), 2);
+                    cv::Point(20, 30), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 0), 2);
+        cv::putText(frame, "Read: " + std::to_string((int)read_ms) + "ms  Process: " + std::to_string((int)process_ms) + "ms", 
+                    cv::Point(20, 60), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 0), 2);
 
-        // 4. 弹窗显示画面
+        // 显示画面
         cv::imshow("Robot Vision Stream", frame);
 
-        // 5. 关键点：waitKey(1) 控制播放速度，不能是0！
-        // 如果按下键盘的 'q' 键，就提前退出
+        // 把窗口固定在 800x600 的大小
+        cv::resizeWindow("Robot Vision Stream", 800, 600);
+
+        // 按 'q' 退出
         if (cv::waitKey(1) == 'q') {
             break;
         }
     }
     
-    cap.release(); // 释放视频
+    cap.release(); 
     cv::destroyAllWindows();
     return 0;
 }
