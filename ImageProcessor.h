@@ -4,6 +4,6 @@
 
 class ImageProcessor {
 public:
-    // 处理图片的方法，传入输入路径和输出路径
-    void process(const std::string& input_path, const std::string& output_path);
+      // 接收一帧图像，返回画好框的图像
+    cv::Mat process(cv::Mat& frame); 
 };
