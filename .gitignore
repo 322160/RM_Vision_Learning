@@ -5,3 +5,7 @@ Makefile
 cmake_install.cmake
 vision_app
 .vscode/
+test.mp4
+*.caffemodel
+dog.jpg
+yolo_test
