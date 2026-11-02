@@ -1,9 +1,11 @@
 cmake_minimum_required(VERSION 3.10)
 project(Day2Vision)
-set(CMAKE_CEX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 11)
 
 find_package(OpenCV REQUIRED)
 
-add_executable(vision_app main.cpp ImageProcessor.cpp NMS.cpp)
+# 注意这里：生成名叫 yolo_test 的程序，编译 yolo_test.cpp
+add_executable(yolo_test yolo_test.cpp)
 
-target_link_libraries(vision_app ${OpenCV_LIBS})
+# 注意这里：把 OpenCV 链接给 yolo_test
+target_link_libraries(yolo_test ${OpenCV_LIBS})

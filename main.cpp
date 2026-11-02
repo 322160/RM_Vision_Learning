@@ -18,53 +18,52 @@ int main() {
     cv::namedWindow("Robot Vision Stream", cv::WINDOW_NORMAL);
 
     // 2. 死循环：不断地读、处理、显示
-    while (true) {
-        double t_read_start = (double)cv::getTickCount();
-        cap >> frame; // 读取下一帧
-        double t_read_end = (double)cv::getTickCount();
-        
-        if (frame.empty()) {
-            std::cout << "视频播放完毕！" << std::endl;
-            break; 
- // 核心魔法：把视频的读取指针重置回第 0 帧
-            cap.set(cv::CAP_PROP_POS_FRAMES, 0); 
-            continue; // 跳过本次循环剩余代码，重新读第一帧
+       while (cap.read(frame)) {
+        Mat blob;
+        // 注意：Caffe 模型通常用 BGR，swapRB 写 false
+        blobFromImage(frame, blob, 1.0, Size(300, 300), Scalar(104, 117, 123), false, false);
+        net.setInput(blob);
+        Mat detection = net.forward();
+        Mat detectionMat(detection.size[2], detection.size[3], CV_32F, detection.ptr<float>());
+
+        for (int i = 0; i < detectionMat.rows; i++) {
+            float confidence = detectionMat.at<float>(i, 2); 
+            int classId = static_cast<int>(detectionMat.at<float>(i, 1));
+
+            if (confidence > 0.2 && classId != 0) { 
+                int x1 = static_cast<int>(detectionMat.at<float>(i, 3) * frame.cols);
+                int y1 = static_cast<int>(detectionMat.at<float>(i, 4) * frame.rows);
+                int x2 = static_cast<int>(detectionMat.at<float>(i, 5) * frame.cols);
+                int y2 = static_cast<int>(detectionMat.at<float>(i, 6) * frame.rows);
+                
+                // 算一下这个框的面积
+                int w = x2 - x1;
+                int h = y2 - y1;
+                
+                // 【核心过滤】：如果框太大（占画面 30% 以上），直接扔掉，那是误检！
+                if (w * h < frame.cols * frame.rows * 0.3) {
+                    rectangle(frame, Rect(x1, y1, w, h), Scalar(0, 0, 255), 2);
+                }
+            }
         }
 
-        // 【提速魔法】：把画面缩小一半（0.5）。如果还卡，就改成 0.25
-        cv::resize(frame, frame, cv::Size(), 0.5, 0.5);
+        // 【核心魔法】：在显示前，直接把原图缩小一半，窗口绝对变小！
+        Mat displayFrame;
+        cv::resize(frame, displayFrame, cv::Size(), 0.5, 0.5);
 
-        // 计时处理时间
-        double t_process_start = (double)cv::getTickCount();
-        processor.process(frame); 
-        double t_process_end = (double)cv::getTickCount();
-
-        // 计算耗时（毫秒）
-        double read_ms = (t_read_end - t_read_start) / cv::getTickFrequency() * 1000;
-        double process_ms = (t_process_end - t_process_start) / cv::getTickFrequency() * 1000;
-
-        // 计算总 FPS
-        double fps = 1.0 / ((read_ms + process_ms) / 1000.0);
-
-        // 把数据打在画面上
-        cv::putText(frame, "FPS: " + std::to_string((int)fps), 
-                    cv::Point(20, 30), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 0), 2);
-        cv::putText(frame, "Read: " + std::to_string((int)read_ms) + "ms  Process: " + std::to_string((int)process_ms) + "ms", 
-                    cv::Point(20, 60), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 0), 2);
-
-        // 显示画面
-        cv::imshow("Robot Vision Stream", frame);
-
-        // 把窗口固定在 800x600 的大小
-        cv::resizeWindow("Robot Vision Stream", 800, 600);
-
-        // 按 'q' 退出
-        if (cv::waitKey(30) == 'q') {
-            break;
-        }
+        imshow("AI Video Stream", displayFrame);
+        if (waitKey(1) == 'q') break;
     }
     
     cap.release(); 
     cv::destroyAllWindows();
+ cv::namedWindow("AI Image Output", cv::WINDOW_NORMAL);
+    cv::resizeWindow("AI Image Output", 800, 600);
+    imshow("AI Image Output", frame);
+    
+    waitKey(0);
+
+
+
     return 0;
 }

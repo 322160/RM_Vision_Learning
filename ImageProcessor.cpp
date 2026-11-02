@@ -1,47 +1,69 @@
-#include "ImageProcessor.h"
 #include <iostream>
+#include <opencv2/opencv.hpp>
+#include <opencv2/dnn.hpp>
 #include <vector>
-#include "NMS.h"
 
-cv::Mat ImageProcessor::process(cv::Mat& frame) {
-    cv::Mat gray, binary;
-    
-    // 1. 转灰度图
-    cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
+using namespace std;
+using namespace cv;
+using namespace cv::dnn;
 
-    // 2. 固定阈值二值化 (低于100变白，高于100变黑)
-    // 如果画面偏暗或偏亮，你可以把 100 改成 80 或 120 试试
-    cv::threshold(gray, binary, 100, 255, cv::THRESH_BINARY_INV);
+int main() {
+    // 1. 加载 Caffe 模型
+    string prototxt = "deploy.prototxt";
+    string caffemodel = "mobilenet_iter_73000.caffemodel";
+    Net net = readNetFromCaffe(prototxt, caffemodel);
+    if (net.empty()) {
+        cout << "模型加载失败，请检查文件路径！" << endl;
+        return -1;
+    }
+    cout << "模型加载成功！按 'q' 键退出..." << endl;
 
-    // 3. 形态学闭运算（强行把房子的边缘“糊”连起来，防止断裂）
-    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(7, 7));
-    cv::morphologyEx(binary, binary, cv::MORPH_CLOSE, kernel);
+    // 2. 打开视频文件（请确保你的视频命名为 test.mp4 并放在同一目录下）
+    VideoCapture cap("test.mp4");
+    if (!cap.isOpened()) {
+        cout << "视频读取失败，请检查视频文件名！" << endl;
+        return -1;
+    }
 
-    // 【调试魔法】：把黑白图弹出来，让你看清真相
-    cv::imshow("Binary Image", binary);
+    Mat frame;
+    // 3. 循环读取视频的每一帧
+    while (true) {
+        cap >> frame;
+        if (frame.empty()) break; // 视频播放完毕
 
-    // 4. 寻找轮廓
-    std::vector<std::vector<cv::Point>> contours;
-    cv::findContours(binary, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+        // 4. 图像预处理，转成 Blob 格式 (SSD 模型标准输入是 300x300)
+        Mat blob;
+        blobFromImage(frame, blob, 1.0, Size(300, 300), Scalar(104, 117, 123), false, false);
 
-    std::vector<cv::Rect> boxes;
-    for (size_t i = 0; i < contours.size(); i++) {
-        // 5. 面积过滤（只要大于100像素就抓）
-        if (cv::contourArea(contours[i]) > 100) { 
-            cv::Rect rect = cv::boundingRect(contours[i]);
-            boxes.push_back(rect); 
+        // 5. 丢进神经网络推理
+        net.setInput(blob);
+        Mat detection = net.forward();
+
+        // 6. 解析输出并画框
+        Mat detectionMat(detection.size[2], detection.size[3], CV_32F, detection.ptr<float>());
+        for (int i = 0; i < detectionMat.rows; i++) {
+            float confidence = detectionMat.at<float>(i, 2); // 置信度
+            if (confidence > 0.5) { // 只要置信度大于 0.5 的
+                int idx = detectionMat.at<float>(i, 1);
+                int xLeftBottom = static_cast<int>(detectionMat.at<float>(i, 3) * frame.cols);
+                int yLeftBottom = static_cast<int>(detectionMat.at<float>(i, 4) * frame.rows);
+                int xRightTop = static_cast<int>(detectionMat.at<float>(i, 5) * frame.cols);
+                int yRightTop = static_cast<int>(detectionMat.at<float>(i, 6) * frame.rows);
+                
+                // 画绿框
+                Rect object((int)xLeftBottom, (int)yLeftBottom, (int)(xRightTop - xLeftBottom), (int)(yRightTop - yLeftBottom));
+                rectangle(frame, object, Scalar(0, 255, 0), 2);
+            }
         }
-    }
-    
-    std::cout << "暴力提取的矩形数量: " << boxes.size() << std::endl; 
 
-    // 6. NMS 去重
-    std::vector<cv::Rect> final_boxes = applyNMS(boxes, 0.4f); 
-    
-    // 7. 画框（洋红色）
-    for (const auto& rect : final_boxes) {
-        cv::rectangle(frame, rect, cv::Scalar(255, 0, 255), 2); 
+        // 7. 显示画面
+        imshow("AI Video Stream", frame);
+        
+        // 视频播放控制，按 q 退出
+        if (waitKey(1) == 'q') break;
     }
-    
-    return frame;
+
+    cap.release();
+    destroyAllWindows();
+    return 0;
 }
